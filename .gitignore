@@ -1,0 +1,16 @@
+# Swift build output and local package state
+.build/
+.index-build/
+.swiftpm/
+DerivedData/
+
+# Packaged application
+dist/
+
+# Local IDE settings
+.idea/
+xcuserdata/
+*.xcuserstate
+
+# macOS metadata
+.DS_Store
