@@ -14,7 +14,7 @@ struct SettingsView: View {
             PanelPageHeader(title: "Settings", back: done)
 
             ScrollView {
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: 12) {
                     Toggle(isOn: Binding(get: { store.cleanDesktopEnabled }, set: store.setCleanDesktopEnabled)) {
                         settingLabel("Move desktop files to trash")
                     }
@@ -55,8 +55,8 @@ struct SettingsView: View {
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
-                .toggleStyle(.checkbox)
-                .controlSize(.small)
+                .toggleStyle(.switch)
+                .controlSize(.regular)
                 .padding(.horizontal, PanelLayout.inset)
                 .padding(.vertical, PanelLayout.sectionSpacing)
             }
@@ -73,7 +73,8 @@ struct SettingsView: View {
         Text(title)
             .font(.system(size: 12))
             .foregroundStyle(palette.secondaryText)
-            .frame(maxWidth: .infinity, minHeight: 24, alignment: .leading)
+            .frame(maxWidth: .infinity, minHeight: 32, alignment: .leading)
             .contentShape(Rectangle())
     }
 }
+
