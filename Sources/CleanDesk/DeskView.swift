@@ -14,7 +14,7 @@ struct DeskView: View {
     private var keptApps: [SavedApplication] {
         store.protectedApps
     }
-    private var closingApps: [ManagedApplication] {
+    private var otherOpenApps: [ManagedApplication] {
         store.applications.filter { !store.isProtected($0) }
     }
 
@@ -44,10 +44,12 @@ struct DeskView: View {
             if isCleaning { page = .dashboard }
         }
         .contextMenu {
-            Button("Keep favourites") { cleanDesk() }
-                .disabled(!store.canClean)
-            Button("Close all", role: .destructive) { cleanDesk(all: true) }
-                .disabled(!store.canCleanAll)
+            ForEach(CleanupMode.allCases, id: \.self) { mode in
+                Button(mode.title, role: mode.isDestructive ? .destructive : nil) {
+                    cleanDesk(mode)
+                }
+                .disabledWithReason(store.cleanupDisabledReason(mode))
+            }
             Divider()
             Button("Quit", action: quit)
         }
@@ -56,6 +58,7 @@ struct DeskView: View {
     private var dashboard: some View {
         VStack(spacing: 0) {
             toolbar
+                .zIndex(1)
 
             ScrollView {
                 VStack(spacing: PanelLayout.sectionSpacing) {
@@ -69,11 +72,11 @@ struct DeskView: View {
                         }
                     }
 
-                    if !closingApps.isEmpty {
+                    if !otherOpenApps.isEmpty {
                         VStack(spacing: PanelLayout.headerSpacing) {
-                            sectionHeading("Other open apps", count: closingApps.count, isKept: false)
+                            sectionHeading("Other open apps", count: otherOpenApps.count, isKept: false)
                             VStack(spacing: PanelLayout.rowSpacing) {
-                                ForEach(closingApps) { app in closingRow(app) }
+                                ForEach(otherOpenApps) { app in closingRow(app) }
                             }
                         }
                     }
@@ -115,7 +118,7 @@ struct DeskView: View {
                         .buttonStyle(.plain)
                         .foregroundStyle(accent)
                         .pointingHand(isEnabled: !store.isCleaning && !store.isGrantingDesktopAccess)
-                        .disabled(store.isCleaning || store.isGrantingDesktopAccess)
+                        .disabledWithReason(store.desktopSettingsDisabledReason)
                     }
                 }
                 .padding(10)
@@ -127,8 +130,9 @@ struct DeskView: View {
 
     private var toolbar: some View {
         HStack(spacing: PanelLayout.headerSpacing) {
-            cleanButton("Keep favourites", all: false)
-            cleanButton("Close all", all: true)
+            ForEach(CleanupMode.allCases, id: \.self) { mode in
+                cleanButton(mode)
+            }
 
             Button { page = .settings } label: {
                 Image(systemName: "gearshape")
@@ -138,26 +142,26 @@ struct DeskView: View {
                     .contentShape(RoundedRectangle(cornerRadius: 8))
             }
             .buttonStyle(AppRowStyle(tint: accent, cornerRadius: 8))
-            .disabled(store.isCleaning)
+            .disabledWithReason(store.cleaningDisabledReason, alignment: .bottomTrailing)
         }
         .padding(PanelLayout.inset)
     }
 
-    private func cleanButton(_ title: String, all: Bool) -> some View {
-        Button { cleanDesk(all: all) } label: {
+    private func cleanButton(_ mode: CleanupMode) -> some View {
+        Button { cleanDesk(mode) } label: {
             HStack(spacing: 6) {
-                Image(systemName: all ? "trash" : "star")
+                Image(systemName: mode.symbol)
                     .font(.system(size: 14, weight: .semibold))
                     .accessibilityHidden(true)
-                Text(title)
+                Text(mode.title)
                     .font(.system(size: 13, weight: .semibold))
                     .lineLimit(1)
             }
-                .frame(maxWidth: .infinity).frame(height: 50)
-                .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .frame(maxWidth: .infinity).frame(height: 50)
+            .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         }
-        .buttonStyle(CleanDeskButtonStyle(isDestructive: all))
-        .disabled(all ? !store.canCleanAll : !store.canClean)
+        .buttonStyle(CleanDeskButtonStyle(isDestructive: mode.isDestructive))
+        .disabledWithReason(store.cleanupDisabledReason(mode))
     }
 
     private func sectionHeading(_ title: String, count: Int, isKept: Bool) -> some View {
@@ -175,7 +179,7 @@ struct DeskView: View {
                         .background(PanelSurface(tint: accent, cornerRadius: 10))
                         .contentShape(RoundedRectangle(cornerRadius: 10))
                 }
-                .buttonStyle(AppRowStyle(tint: accent, cornerRadius: 10)).disabled(store.isCleaning)
+                .buttonStyle(AppRowStyle(tint: accent, cornerRadius: 10)).disabledWithReason(store.cleaningDisabledReason)
             }
         }
         .foregroundStyle(isKept ? accent : danger)
@@ -206,7 +210,7 @@ struct DeskView: View {
             .contentShape(RoundedRectangle(cornerRadius: PanelLayout.cornerRadius))
         }
         .buttonStyle(AppRowStyle(tint: accent))
-        .disabled(store.isCleaning)
+        .disabledWithReason(store.cleaningDisabledReason)
     }
 
     private func closingRow(_ app: ManagedApplication) -> some View {
@@ -222,14 +226,14 @@ struct DeskView: View {
             .contentShape(RoundedRectangle(cornerRadius: PanelLayout.cornerRadius))
         }
         .buttonStyle(AppRowStyle(tint: danger))
-        .disabled(store.isCleaning)
+        .disabledWithReason(store.cleaningDisabledReason)
     }
 
     private func chooseApplication() { page = .apps }
 
-    private func cleanDesk(all: Bool = false) {
+    private func cleanDesk(_ mode: CleanupMode) {
         page = .dashboard
-        store.clean(all: all)
+        store.clean(mode)
     }
 
     private func emptyState(_ title: String) -> some View {

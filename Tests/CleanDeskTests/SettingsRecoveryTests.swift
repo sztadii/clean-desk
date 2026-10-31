@@ -25,7 +25,11 @@ final class SettingsRecoveryTests: XCTestCase {
             XCTAssertTrue(store.isRecoveringSelection)
             XCTAssertTrue(store.protectedApps.isEmpty)
             XCTAssertTrue(store.onboardingApps.isEmpty)
-            XCTAssertFalse(store.canClean)
+            XCTAssertFalse(store.canClean(.keepFavourites))
+            XCTAssertFalse(store.canClean(.closeAll))
+            for mode in CleanupMode.allCases {
+                XCTAssertEqual(store.cleanupDisabledReason(mode), "Save your favourites first")
+            }
 
             store.clean()
             XCTAssertFalse(store.isCleaning)
@@ -42,7 +46,8 @@ final class SettingsRecoveryTests: XCTestCase {
             XCTAssertTrue(store.needsOnboarding)
             XCTAssertTrue(store.isRecoveringSelection)
             XCTAssertTrue(store.onboardingApps.isEmpty)
-            XCTAssertFalse(store.canClean)
+            XCTAssertFalse(store.canClean(.keepFavourites))
+            XCTAssertFalse(store.canClean(.closeAll))
             store.clean()
             XCTAssertFalse(store.isCleaning)
             XCTAssertNil(defaults.object(forKey: selectionKey))
@@ -57,7 +62,8 @@ final class SettingsRecoveryTests: XCTestCase {
             XCTAssertTrue(store.isRecoveringSelection)
             XCTAssertTrue(store.needsOnboarding)
             XCTAssertTrue(store.onboardingApps.isEmpty)
-            XCTAssertFalse(store.canClean)
+            XCTAssertFalse(store.canClean(.keepFavourites))
+            XCTAssertFalse(store.canClean(.closeAll))
             XCTAssertEqual(defaults.string(forKey: selectionKey), "wrong storage type")
             XCTAssertFalse(defaults.bool(forKey: onboardingKey))
         }
@@ -69,7 +75,8 @@ final class SettingsRecoveryTests: XCTestCase {
             let store = AppStore(defaults: defaults)
             XCTAssertTrue(store.needsOnboarding)
             XCTAssertFalse(store.isRecoveringSelection)
-            XCTAssertFalse(store.canClean)
+            XCTAssertFalse(store.canClean(.keepFavourites))
+            XCTAssertFalse(store.canClean(.closeAll))
             XCTAssertNil(defaults.object(forKey: selectionKey))
         }
     }
@@ -123,7 +130,8 @@ final class SettingsRecoveryTests: XCTestCase {
             store.toggleOnboardingApplication(finder)
             XCTAssertEqual(store.onboardingApps.map(\.id), [finder.id])
             XCTAssertTrue(store.protectedApps.isEmpty)
-            XCTAssertFalse(store.canClean)
+            XCTAssertFalse(store.canClean(.keepFavourites))
+            XCTAssertFalse(store.canClean(.closeAll))
             XCTAssertEqual(defaults.data(forKey: selectionKey), original)
 
             store.finishOnboarding()
@@ -149,7 +157,8 @@ final class SettingsRecoveryTests: XCTestCase {
             XCTAssertTrue(relaunched.isRecoveringSelection)
             XCTAssertTrue(relaunched.needsOnboarding)
             XCTAssertTrue(relaunched.onboardingApps.isEmpty)
-            XCTAssertFalse(relaunched.canClean)
+            XCTAssertFalse(relaunched.canClean(.keepFavourites))
+            XCTAssertFalse(relaunched.canClean(.closeAll))
             XCTAssertEqual(defaults.data(forKey: selectionKey), original)
         }
     }

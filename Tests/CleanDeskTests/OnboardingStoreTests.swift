@@ -18,7 +18,11 @@ final class OnboardingStoreTests: XCTestCase {
             defaults.set(oldData, forKey: "protectedApplications.v1")
             let store = AppStore(defaults: defaults)
             XCTAssertTrue(store.needsOnboarding)
-            XCTAssertFalse(store.canClean)
+            XCTAssertFalse(store.canClean(.keepFavourites))
+            XCTAssertFalse(store.canClean(.closeAll))
+            for mode in CleanupMode.allCases {
+                XCTAssertEqual(store.cleanupDisabledReason(mode), "Finish setup first")
+            }
             XCTAssertFalse(store.onboardingApps.contains { $0.id == oldChoice.id })
             XCTAssertEqual(defaults.data(forKey: "protectedApplications.v1"), oldData)
 
@@ -77,7 +81,8 @@ final class OnboardingStoreTests: XCTestCase {
             for app in store.onboardingApps { store.toggleOnboardingApplication(app) }
             let relaunched = AppStore(defaults: defaults)
             XCTAssertTrue(relaunched.needsOnboarding)
-            XCTAssertFalse(relaunched.canClean)
+            XCTAssertFalse(relaunched.canClean(.keepFavourites))
+            XCTAssertFalse(relaunched.canClean(.closeAll))
             XCTAssertNil(defaults.data(forKey: "protectedApplications.v1"))
             XCTAssertFalse(defaults.bool(forKey: "onboardingCompleted.v1"))
         }
@@ -110,7 +115,8 @@ final class OnboardingStoreTests: XCTestCase {
             XCTAssertEqual(store.onboardingApps.map(\.id), [choice.id])
             XCTAssertTrue(store.protectedApps.isEmpty)
             XCTAssertNil(defaults.data(forKey: "protectedApplications.v1"))
-            XCTAssertFalse(store.canClean)
+            XCTAssertFalse(store.canClean(.keepFavourites))
+            XCTAssertFalse(store.canClean(.closeAll))
 
             store.finishOnboarding()
             let saved = try JSONDecoder().decode([SavedApplication].self, from: XCTUnwrap(defaults.data(forKey: "protectedApplications.v1")))

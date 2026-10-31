@@ -2,8 +2,80 @@ import AppKit
 import SwiftUI
 
 extension View {
+    func disabledWithReason(_ reason: String?, alignment: Alignment = .bottom) -> some View {
+        modifier(DisabledReasonFeedback(reason: reason, alignment: alignment))
+    }
+
     func pointingHand(isEnabled: Bool = true) -> some View {
         background(PointingHandRegion(isEnabled: isEnabled))
+    }
+}
+
+/// An enabled hover target surrounds the disabled control, avoiding the system tooltip delay.
+private struct DisabledReasonFeedback: ViewModifier {
+    let reason: String?
+    let alignment: Alignment
+    @State private var isHovered = false
+
+    func body(content: Content) -> some View {
+        ZStack {
+            content.disabled(reason != nil)
+        }
+        .contentShape(Rectangle())
+        .onHover { isHovered = $0 }
+        .accessibilityHint(reason ?? "")
+        .overlay {
+            GeometryReader { geometry in
+                if isHovered, let reason {
+                    Text(reason)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(.white.opacity(0.65))
+                        .padding(.horizontal, 12)
+                        .padding(.top, 14)
+                        .padding(.bottom, 8)
+                        .background {
+                            let bubble = TooltipBubble(pointsToTrailingEdge: alignment == .bottomTrailing)
+                            bubble.fill(.ultraThinMaterial)
+                                .environment(\.colorScheme, .dark)
+                            bubble.fill(.black.opacity(0.25))
+                            bubble.stroke(.white.opacity(0.12), lineWidth: 0.5)
+                        }
+                        .shadow(color: .black.opacity(0.12), radius: 6, y: 3)
+                        .fixedSize()
+                        .frame(width: geometry.size.width, alignment: alignment == .bottomTrailing ? .trailing : .center)
+                        .offset(y: geometry.size.height + 4)
+                        .accessibilityHidden(true)
+                }
+            }
+            .allowsHitTesting(false)
+        }
+        .zIndex(isHovered && reason != nil ? 1 : 0)
+    }
+}
+
+/// A single outline keeps the pointer and translucent body seamless.
+private struct TooltipBubble: Shape {
+    var pointsToTrailingEdge: Bool
+
+    func path(in rect: CGRect) -> Path {
+        let radius: CGFloat = 8
+        let top = rect.minY + 6
+        let tip = pointsToTrailingEdge ? rect.maxX - 16 : rect.midX
+        var path = Path()
+        path.move(to: CGPoint(x: rect.minX + radius, y: top))
+        path.addLine(to: CGPoint(x: tip - 5, y: top))
+        path.addLine(to: CGPoint(x: tip, y: rect.minY))
+        path.addLine(to: CGPoint(x: tip + 5, y: top))
+        path.addLine(to: CGPoint(x: rect.maxX - radius, y: top))
+        path.addQuadCurve(to: CGPoint(x: rect.maxX, y: top + radius), control: CGPoint(x: rect.maxX, y: top))
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY - radius))
+        path.addQuadCurve(to: CGPoint(x: rect.maxX - radius, y: rect.maxY), control: CGPoint(x: rect.maxX, y: rect.maxY))
+        path.addLine(to: CGPoint(x: rect.minX + radius, y: rect.maxY))
+        path.addQuadCurve(to: CGPoint(x: rect.minX, y: rect.maxY - radius), control: CGPoint(x: rect.minX, y: rect.maxY))
+        path.addLine(to: CGPoint(x: rect.minX, y: top + radius))
+        path.addQuadCurve(to: CGPoint(x: rect.minX + radius, y: top), control: CGPoint(x: rect.minX, y: top))
+        path.closeSubpath()
+        return path
     }
 }
 

@@ -85,7 +85,7 @@ struct AppPickerView: View {
                                 .background(PanelSurface(tint: selected ? palette.accent : palette.surface))
                                 .contentShape(Rectangle())
                             }
-                            .buttonStyle(AppRowStyle(tint: palette.accent)).disabled(store.isCleaning)
+                            .buttonStyle(AppRowStyle(tint: palette.accent)).disabledWithReason(store.cleaningDisabledReason)
                         }
                         if filteredApps.isEmpty {
                             VStack(spacing: 10) {

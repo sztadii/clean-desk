@@ -99,7 +99,7 @@ struct OnboardingView: View {
                 .contentShape(RoundedRectangle(cornerRadius: 14))
             }
             .buttonStyle(CleanDeskButtonStyle())
-            .disabled(store.isGrantingDesktopAccess)
+            .disabledWithReason(store.desktopAccessDisabledReason)
 
             Button {
                 requestedAccess = false
@@ -113,7 +113,7 @@ struct OnboardingView: View {
                     .contentShape(Rectangle())
             }
             .buttonStyle(AppRowStyle(tint: palette.accent))
-            .disabled(store.isGrantingDesktopAccess)
+            .disabledWithReason(store.desktopAccessDisabledReason)
             .padding(.top, 6)
         }
         .padding(.horizontal, PanelLayout.inset)
@@ -172,7 +172,7 @@ struct OnboardingView: View {
                         .contentShape(RoundedRectangle(cornerRadius: 14))
                 }
                 .buttonStyle(CleanDeskButtonStyle())
-                .disabled(store.isGrantingDesktopAccess)
+                .disabledWithReason(store.desktopAccessDisabledReason)
             }
             .padding(.top, 14)
         }

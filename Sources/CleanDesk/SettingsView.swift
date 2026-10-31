@@ -18,7 +18,7 @@ struct SettingsView: View {
                     Toggle(isOn: Binding(get: { store.cleanDesktopEnabled }, set: store.setCleanDesktopEnabled)) {
                         settingLabel("Move desktop files to trash")
                     }
-                    .disabled(store.isCleaning || store.isGrantingDesktopAccess)
+                    .disabledWithReason(store.desktopSettingsDisabledReason)
                     .pointingHand(isEnabled: !store.isCleaning && !store.isGrantingDesktopAccess)
 
                     if store.desktopNeedsAccess {
@@ -27,7 +27,7 @@ struct SettingsView: View {
                             .font(.system(size: 12, weight: .medium))
                             .foregroundStyle(palette.accent)
                             .padding(.bottom, 8)
-                            .disabled(store.isCleaning || store.isGrantingDesktopAccess)
+                            .disabledWithReason(store.desktopSettingsDisabledReason)
                             .pointingHand(isEnabled: !store.isCleaning && !store.isGrantingDesktopAccess)
                     }
 

@@ -112,7 +112,7 @@ final class CleanupCoordinator {
         desktopResult = DesktopCleanupResult(trashedCount: desktopResult.trashedCount, failures: [])
     }
 
-    func clean(protectedApps: [SavedApplication], cleanDesktop: Bool, all: Bool = false) async {
+    func clean(protectedApps: [SavedApplication], cleanDesktop: Bool, mode: CleanupMode = .keepFavourites) async {
         guard !isCleaning, !Task.isCancelled else { return }
         reset()
         let session = UUID()
@@ -127,7 +127,7 @@ final class CleanupCoordinator {
             }
         }
 
-        let protectedApps = all ? [] : protectedApps
+        let protectedApps = mode == .closeAll ? [] : protectedApps
         let protectedKeys = Set(protectedApps.map(\.id))
         let running = environment.runningApplications().filter { !$0.isTerminated }.map { ($0, $0.record) }
         let plan = DeskPlan(running: running.map { $0.1 }, protectedKeys: protectedKeys, policy: policy)

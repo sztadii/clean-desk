@@ -30,7 +30,8 @@ final class DesktopPermissionStoreTests: XCTestCase {
         defer { observation.cancel() }
         action()
         XCTAssertTrue(store.isGrantingDesktopAccess)
-        XCTAssertFalse(store.canClean)
+        XCTAssertFalse(store.canClean(.keepFavourites))
+        XCTAssertFalse(store.canClean(.closeAll))
         await fulfillment(of: [completed], timeout: 2)
         XCTAssertFalse(store.isGrantingDesktopAccess)
     }

@@ -130,12 +130,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         if wasShowingPopover { store.refresh(inspectDesktop: false) }
         let menu = NSMenu()
         menu.autoenablesItems = false
-        let cleanItem = NSMenuItem(title: "Keep favourites", action: #selector(cleanDesk), keyEquivalent: "")
+        let cleanItem = NSMenuItem(title: CleanupMode.keepFavourites.title, action: #selector(cleanDesk), keyEquivalent: "")
         cleanItem.target = self
-        cleanItem.isEnabled = !store.isCleaning && store.canClean
-        let cleanAllItem = NSMenuItem(title: "Close all", action: #selector(cleanAll), keyEquivalent: "")
+        updateCleanupItem(cleanItem, mode: .keepFavourites)
+        let cleanAllItem = NSMenuItem(title: CleanupMode.closeAll.title, action: #selector(cleanAll), keyEquivalent: "")
         cleanAllItem.target = self
-        cleanAllItem.isEnabled = store.canCleanAll
+        updateCleanupItem(cleanAllItem, mode: .closeAll)
         menu.addItem(cleanItem)
         menu.addItem(cleanAllItem)
         menu.addItem(.separator())
@@ -151,15 +151,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             guard let self, !Task.isCancelled, self.contextMenuRequestID == requestID else { return }
             await self.store.refreshDesktopStatus()
             guard !Task.isCancelled, self.contextMenuRequestID == requestID else { return }
-            cleanAllItem?.isEnabled = self.store.canCleanAll
-            cleanItem?.isEnabled = !self.store.isCleaning && self.store.canClean
+            self.updateCleanupItem(cleanAllItem, mode: .closeAll)
+            self.updateCleanupItem(cleanItem, mode: .keepFavourites)
         }
         let menuObserver = store.objectWillChange
             .receive(on: DispatchQueue.main)
             .sink { [weak self, weak cleanItem, weak cleanAllItem] in
                 guard let self, self.contextMenuRequestID == requestID else { return }
-                cleanAllItem?.isEnabled = self.store.canCleanAll
-                cleanItem?.isEnabled = self.store.canClean
+                self.updateCleanupItem(cleanAllItem, mode: .closeAll)
+                self.updateCleanupItem(cleanItem, mode: .keepFavourites)
             }
         button.highlight(true)
         _ = withExtendedLifetime(menuObserver) {
@@ -175,8 +175,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         }
     }
 
+    private func updateCleanupItem(_ item: NSMenuItem?, mode: CleanupMode) {
+        let reason = store.cleanupDisabledReason(mode)
+        item?.isEnabled = reason == nil
+        item?.toolTip = reason
+    }
+
     @objc private func cleanAll() {
-        store.clean(all: true)
+        store.clean(.closeAll)
     }
 
     @objc private func cleanDesk() {

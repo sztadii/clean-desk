@@ -47,12 +47,37 @@ final class AppStore: ObservableObject {
     var finderNeedsHiding: Bool {
         applications.contains { $0.bundleIdentifier?.lowercased() == "com.apple.finder" && !isProtected($0) }
     }
-    var canClean: Bool {
-        !isCleaning && !needsOnboarding && !isRecoveringSelection && !isGrantingDesktopAccess && (targetCount > 0 || launchCount > 0 || (cleanDesktopEnabled && (desktopFileCount ?? 0) > 0))
+    var cleaningDisabledReason: String? {
+        isCleaning ? "Cleanup in progress" : nil
     }
-    var canCleanAll: Bool {
-        !isCleaning && !needsOnboarding && !isRecoveringSelection && !isGrantingDesktopAccess
-            && (!applications.isEmpty || (cleanDesktopEnabled && (desktopFileCount ?? 0) > 0))
+
+    var desktopAccessDisabledReason: String? {
+        isGrantingDesktopAccess ? "Finish the access request" : nil
+    }
+
+    var desktopSettingsDisabledReason: String? {
+        cleaningDisabledReason ?? desktopAccessDisabledReason
+    }
+
+    func canClean(_ mode: CleanupMode) -> Bool {
+        cleanupDisabledReason(mode) == nil
+    }
+
+    func cleanupDisabledReason(_ mode: CleanupMode) -> String? {
+        if let reason = cleaningDisabledReason { return reason }
+        if isRecoveringSelection { return "Save your favourites first" }
+        if needsOnboarding { return "Finish setup first" }
+        if let reason = desktopAccessDisabledReason { return reason }
+
+        let hasDesktopFiles = cleanDesktopEnabled && (desktopFileCount ?? 0) > 0
+        switch mode {
+        case .keepFavourites:
+            guard targetCount == 0, launchCount == 0, !hasDesktopFiles else { return nil }
+            return "Nothing to clean"
+        case .closeAll:
+            guard applications.isEmpty, !hasDesktopFiles else { return nil }
+            return "Nothing to clean"
+        }
     }
     var desktopInspectionFailed: Bool { !desktopInspectionFailures.isEmpty }
     var desktopNeedsAccess: Bool { cleanupDesktopAccessDenied || desktopAccessDenied || (cleanDesktopEnabled && (!desktopAccess.hasGrant || desktopInspectionAccessDenied)) }
@@ -326,18 +351,18 @@ final class AppStore: ObservableObject {
         resetReportPresentation()
     }
 
-    func clean(all: Bool = false) {
-        guard (all ? canCleanAll : canClean) else { return }
+    func clean(_ mode: CleanupMode = .keepFavourites) {
+        guard canClean(mode) else { return }
         resetReport()
         refresh(inspectDesktop: false)
-        guard (all ? canCleanAll : canClean) else { return }
+        guard canClean(mode) else { return }
         let selected = protectedApps
         let shouldCleanDesktop = cleanDesktopEnabled
         isCleaning = true
         invalidateDesktopInspection()
         cleanupTask = Task { @MainActor [weak self] in
             guard let self else { return }
-            await self.cleanup.clean(protectedApps: selected, cleanDesktop: shouldCleanDesktop, all: all)
+            await self.cleanup.clean(protectedApps: selected, cleanDesktop: shouldCleanDesktop, mode: mode)
             self.isCleaning = false
             self.cleanupTask = nil
             self.refresh(inspectDesktop: self.monitor.isVisible)

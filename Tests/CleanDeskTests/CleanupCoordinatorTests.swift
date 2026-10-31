@@ -14,7 +14,7 @@ final class CleanupCoordinatorTests: XCTestCase {
         await coordinator.clean(
             protectedApps: [favourite.saved, world.saved("Missing")],
             cleanDesktop: true,
-            all: true
+            mode: .closeAll
         )
 
         XCTAssertEqual(world.events.first, "desktop")
