@@ -6,11 +6,13 @@ import CleanDeskCore
 @MainActor
 final class ApplicationRuntime {
     private let workspace: NSWorkspace
+    private let applicationURL: (String) -> URL?
     private let icons: ApplicationIconCache
     private var cachedRows: [String: ManagedApplication] = [:]
 
-    init(workspace: NSWorkspace, icons: ApplicationIconCache? = nil) {
+    init(workspace: NSWorkspace, icons: ApplicationIconCache? = nil, applicationURL: ((String) -> URL?)? = nil) {
         self.workspace = workspace
+        self.applicationURL = applicationURL ?? { workspace.urlForApplication(withBundleIdentifier: $0) }
         self.icons = icons ?? .shared
     }
 
@@ -27,9 +29,11 @@ final class ApplicationRuntime {
 
     func resolve(_ app: SavedApplication) -> URL? {
         var candidates: [URL] = []
-        if let identifier = app.bundleIdentifier,
-           let url = workspace.urlForApplication(withBundleIdentifier: identifier) { candidates.append(url) }
+        // Launch the selected installation before consulting Launch Services,
+        // which may point at a development or outdated copy with the same ID.
         if let path = app.path { candidates.append(URL(fileURLWithPath: path)) }
+        if let identifier = app.bundleIdentifier,
+           let url = applicationURL(identifier) { candidates.append(url) }
         return candidates.first { url in
             guard FileManager.default.fileExists(atPath: url.path), let bundle = Bundle(url: url) else { return false }
             // An old path may now belong to another app. Never launch it unless
@@ -43,8 +47,14 @@ final class ApplicationRuntime {
             completion(nil, "the installed application could not be found")
             return
         }
+        // A launcher started from an Electron development tool can inherit
+        // this flag. Launch Services passes it on even with an empty OpenConfiguration
+        // environment, making Electron favourites run as Node without a UI.
+        // Remove it from the actual process environment, rather than copying
+        // ProcessInfo.environment (which may be cached) into the launch request.
+        unsetenv("ELECTRON_RUN_AS_NODE")
         let configuration = NSWorkspace.OpenConfiguration()
-        configuration.activates = false
+        configuration.activates = true
         configuration.createsNewApplicationInstance = false
         workspace.openApplication(at: url, configuration: configuration) { [weak self] application, error in
             Task { @MainActor in
@@ -52,7 +62,7 @@ final class ApplicationRuntime {
                 if let application, Self.record(for: application).applicationKey == app.id {
                     completion(WorkspaceProcess(application: application, runtime: self), nil)
                 } else {
-                    completion(nil, error != nil ? "macOS could not open the application" : "macOS did not confirm that the application opened")
+                    completion(nil, error.map { "macOS could not open the application: \($0.localizedDescription)" } ?? "macOS did not confirm that the application opened")
                 }
             }
         }
