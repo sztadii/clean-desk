@@ -50,6 +50,10 @@ final class AppStore: ObservableObject {
     var canClean: Bool {
         !isCleaning && !needsOnboarding && !isRecoveringSelection && !isGrantingDesktopAccess && (targetCount > 0 || launchCount > 0 || (cleanDesktopEnabled && (desktopFileCount ?? 0) > 0))
     }
+    var canCleanAll: Bool {
+        !isCleaning && !needsOnboarding && !isRecoveringSelection && !isGrantingDesktopAccess
+            && (!applications.isEmpty || (cleanDesktopEnabled && (desktopFileCount ?? 0) > 0))
+    }
     var desktopInspectionFailed: Bool { !desktopInspectionFailures.isEmpty }
     var desktopNeedsAccess: Bool { cleanupDesktopAccessDenied || desktopAccessDenied || (cleanDesktopEnabled && (!desktopAccess.hasGrant || desktopInspectionAccessDenied)) }
     private var protectedKeys: Set<String> { Set(protectedApps.map(\.id)) }
@@ -322,18 +326,18 @@ final class AppStore: ObservableObject {
         resetReportPresentation()
     }
 
-    func clean() {
-        guard canClean else { return }
+    func clean(all: Bool = false) {
+        guard (all ? canCleanAll : canClean) else { return }
         resetReport()
         refresh(inspectDesktop: false)
-        guard canClean else { return }
+        guard (all ? canCleanAll : canClean) else { return }
         let selected = protectedApps
         let shouldCleanDesktop = cleanDesktopEnabled
         isCleaning = true
         invalidateDesktopInspection()
         cleanupTask = Task { @MainActor [weak self] in
             guard let self else { return }
-            await self.cleanup.clean(protectedApps: selected, cleanDesktop: shouldCleanDesktop)
+            await self.cleanup.clean(protectedApps: selected, cleanDesktop: shouldCleanDesktop, all: all)
             self.isCleaning = false
             self.cleanupTask = nil
             self.refresh(inspectDesktop: self.monitor.isVisible)
@@ -359,8 +363,8 @@ final class AppStore: ObservableObject {
         var details: [String] = []
         if !remaining.isEmpty { details.append("Check these apps for unsaved changes or a request to confirm quitting.") }
         if !launchFailures.isEmpty { details.append("Some selected apps could not be opened.") }
-        if !hideFailures.isEmpty { details.append("Finder could not be hidden. Try Clean desk again.") }
-        if !showFailures.isEmpty { details.append("Finder could not be shown. Try Clean desk again.") }
+        if !hideFailures.isEmpty { details.append("Finder could not be hidden. Try cleaning again.") }
+        if !showFailures.isEmpty { details.append("Finder could not be shown. Try cleaning again.") }
         if !allDesktopFailures.isEmpty { details.append(contentsOf: allDesktopFailures) }
         let detail = details.joined(separator: " ")
         let title = !hideFailures.isEmpty || !showFailures.isEmpty || !allDesktopFailures.isEmpty ? "Some items need attention" : (remaining.isEmpty ? "Some apps could not open" : (launchFailures.isEmpty ? "Some apps are still open" : "Some apps need attention"))

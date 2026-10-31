@@ -130,10 +130,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         if wasShowingPopover { store.refresh(inspectDesktop: false) }
         let menu = NSMenu()
         menu.autoenablesItems = false
-        let cleanItem = NSMenuItem(title: "Clean desktop", action: #selector(cleanDesk), keyEquivalent: "")
+        let cleanItem = NSMenuItem(title: "Keep favourites", action: #selector(cleanDesk), keyEquivalent: "")
         cleanItem.target = self
         cleanItem.isEnabled = !store.isCleaning && store.canClean
+        let cleanAllItem = NSMenuItem(title: "Close all", action: #selector(cleanAll), keyEquivalent: "")
+        cleanAllItem.target = self
+        cleanAllItem.isEnabled = store.canCleanAll
         menu.addItem(cleanItem)
+        menu.addItem(cleanAllItem)
         menu.addItem(.separator())
         let quitItem = NSMenuItem(title: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "")
         quitItem.target = NSApp
@@ -143,16 +147,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         contextMenuTask?.cancel()
         let requestID = UUID()
         contextMenuRequestID = requestID
-        contextMenuTask = Task { @MainActor [weak self, weak cleanItem] in
+        contextMenuTask = Task { @MainActor [weak self, weak cleanItem, weak cleanAllItem] in
             guard let self, !Task.isCancelled, self.contextMenuRequestID == requestID else { return }
             await self.store.refreshDesktopStatus()
             guard !Task.isCancelled, self.contextMenuRequestID == requestID else { return }
+            cleanAllItem?.isEnabled = self.store.canCleanAll
             cleanItem?.isEnabled = !self.store.isCleaning && self.store.canClean
         }
         let menuObserver = store.objectWillChange
             .receive(on: DispatchQueue.main)
-            .sink { [weak self, weak cleanItem] in
+            .sink { [weak self, weak cleanItem, weak cleanAllItem] in
                 guard let self, self.contextMenuRequestID == requestID else { return }
+                cleanAllItem?.isEnabled = self.store.canCleanAll
                 cleanItem?.isEnabled = self.store.canClean
             }
         button.highlight(true)
@@ -167,6 +173,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             contextMenuTask?.cancel()
             contextMenuTask = nil
         }
+    }
+
+    @objc private func cleanAll() {
+        store.clean(all: true)
     }
 
     @objc private func cleanDesk() {

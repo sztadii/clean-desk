@@ -7,12 +7,12 @@ Building requires macOS 14 or later and Xcode or Command Line Tools with Swift 6
 ```sh
 ./scripts/build.sh
 ```
-Builds and locally signs the app at `dist/Clean Desk.app`.
+Builds and locally signs the app at `/Applications/Clean Desk.app`.
 
 ```sh
-open "dist/Clean Desk.app"
+open "/Applications/Clean Desk.app"
 ```
-Launches the built app. To install it, move it to your Applications folder.
+Launches the built app. Each build updates this single copy in Applications.
 
 ```sh
 ./scripts/build-dmg.sh

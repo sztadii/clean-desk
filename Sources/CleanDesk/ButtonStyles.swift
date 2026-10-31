@@ -42,11 +42,12 @@ private struct RowFeedback: ViewModifier {
 }
 
 struct CleanDeskButtonStyle: ButtonStyle {
+    var isDestructive = false
     @Environment(\.isEnabled) private var isEnabled
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .modifier(CleanDeskFeedback(isPressed: configuration.isPressed, isEnabled: isEnabled))
+            .modifier(CleanDeskFeedback(isPressed: configuration.isPressed, isEnabled: isEnabled, isDestructive: isDestructive))
             .background(PointingHandRegion(isEnabled: isEnabled))
     }
 }
@@ -54,6 +55,7 @@ struct CleanDeskButtonStyle: ButtonStyle {
 private struct CleanDeskFeedback: ViewModifier {
     let isPressed: Bool
     let isEnabled: Bool
+    let isDestructive: Bool
     @State private var isHovered = false
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -61,11 +63,13 @@ private struct CleanDeskFeedback: ViewModifier {
     func body(content: Content) -> some View {
         let palette = PanelPalette(colorScheme: colorScheme)
         let shape = RoundedRectangle(cornerRadius: 14, style: .continuous)
+        let tint = isDestructive ? palette.danger : palette.accent
+        let fill = [tint.opacity(0.16), tint.opacity(0.10)]
         content
-            .foregroundStyle(isEnabled ? PanelPalette.ink : palette.accent.opacity(0.7))
+            .foregroundStyle(isEnabled ? tint : tint.opacity(0.7))
             .background {
                 shape.fill(LinearGradient(
-                    colors: isEnabled ? [PanelPalette.mint, PanelPalette.mintDeep] : [palette.accent.opacity(0.15), palette.accent.opacity(0.09)],
+                    colors: isEnabled ? fill : [tint.opacity(0.15), tint.opacity(0.09)],
                     startPoint: .topLeading, endPoint: .bottomTrailing
                 ))
             }
@@ -74,10 +78,9 @@ private struct CleanDeskFeedback: ViewModifier {
                     .allowsHitTesting(false)
             }
             .overlay {
-                shape.strokeBorder(Color.white.opacity(isEnabled ? 0.22 : 0.035), lineWidth: 0.75)
+                shape.strokeBorder(tint.opacity(isEnabled ? 0.22 : 0.035), lineWidth: 0.75)
                     .allowsHitTesting(false)
             }
-            .shadow(color: PanelPalette.mintDeep.opacity(isEnabled ? 0.12 : 0), radius: 10, y: 4)
             .scaleEffect(isPressed && !reduceMotion ? 0.985 : 1)
             .brightness(isPressed ? -0.035 : 0)
             .onHover { isHovered = $0 }

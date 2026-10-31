@@ -17,10 +17,6 @@ struct DeskView: View {
     private var closingApps: [ManagedApplication] {
         store.applications.filter { !store.isProtected($0) }
     }
-    private var isAllGood: Bool {
-        !store.isCleaning && store.targetCount == 0 && store.launchCount == 0
-            && (!store.cleanDesktopEnabled || (store.desktopFileCount ?? 0) == 0)
-    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -48,8 +44,10 @@ struct DeskView: View {
             if isCleaning { page = .dashboard }
         }
         .contextMenu {
-            Button("Clean desktop") { cleanDesk() }
-                .disabled(store.isCleaning || !store.canClean)
+            Button("Keep favourites") { cleanDesk() }
+                .disabled(!store.canClean)
+            Button("Close all", role: .destructive) { cleanDesk(all: true) }
+                .disabled(!store.canCleanAll)
             Divider()
             Button("Quit", action: quit)
         }
@@ -62,7 +60,7 @@ struct DeskView: View {
             ScrollView {
                 VStack(spacing: PanelLayout.sectionSpacing) {
                     VStack(spacing: keptApps.isEmpty ? 4 : PanelLayout.headerSpacing) {
-                        sectionHeading("Will be open", count: keptApps.count, isKept: true)
+                        sectionHeading("Favourites", count: keptApps.count, isKept: true)
                         VStack(spacing: PanelLayout.rowSpacing) {
                             ForEach(keptApps) { app in savedRow(app) }
                             if keptApps.isEmpty {
@@ -73,7 +71,7 @@ struct DeskView: View {
 
                     if !closingApps.isEmpty {
                         VStack(spacing: PanelLayout.headerSpacing) {
-                            sectionHeading("Will be closed", count: closingApps.count, isKept: false)
+                            sectionHeading("Other open apps", count: closingApps.count, isKept: false)
                             VStack(spacing: PanelLayout.rowSpacing) {
                                 ForEach(closingApps) { app in closingRow(app) }
                             }
@@ -129,7 +127,8 @@ struct DeskView: View {
 
     private var toolbar: some View {
         HStack(spacing: PanelLayout.headerSpacing) {
-            cleanDeskButton
+            cleanButton("Keep favourites", all: false)
+            cleanButton("Close all", all: true)
 
             Button { page = .settings } label: {
                 Image(systemName: "gearshape")
@@ -144,26 +143,21 @@ struct DeskView: View {
         .padding(PanelLayout.inset)
     }
 
-    private var cleanDeskButton: some View {
-        Button { cleanDesk() } label: {
-            HStack(spacing: 9) {
-                if store.isCleaning {
-                    ProgressView().controlSize(.small).tint(accent)
-                } else if isAllGood {
-                    Image(systemName: "checkmark.circle")
-                        .font(.system(size: 20, weight: .medium))
-                        .accessibilityHidden(true)
-                } else {
-                    Image(nsImage: CleanDeskIcon.image(size: 20))
-                        .renderingMode(.template)
-                        .accessibilityHidden(true)
-                }
-                Text(isAllGood ? "All good" : "Clean desk").font(.system(size: 15, weight: .semibold))
+    private func cleanButton(_ title: String, all: Bool) -> some View {
+        Button { cleanDesk(all: all) } label: {
+            HStack(spacing: 6) {
+                Image(systemName: all ? "trash" : "star")
+                    .font(.system(size: 14, weight: .semibold))
+                    .accessibilityHidden(true)
+                Text(title)
+                    .font(.system(size: 13, weight: .semibold))
+                    .lineLimit(1)
             }
-            .frame(maxWidth: .infinity).frame(height: 50)
-            .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .frame(maxWidth: .infinity).frame(height: 50)
+                .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         }
-        .buttonStyle(CleanDeskButtonStyle()).disabled(store.isCleaning || !store.canClean)
+        .buttonStyle(CleanDeskButtonStyle(isDestructive: all))
+        .disabled(all ? !store.canCleanAll : !store.canClean)
     }
 
     private func sectionHeading(_ title: String, count: Int, isKept: Bool) -> some View {
@@ -195,7 +189,15 @@ struct DeskView: View {
                 Text(app.name).font(.system(size: 13, weight: .medium)).lineLimit(1)
                 Spacer(minLength: 8)
                 if store.needsOpening(app) {
-                    Image(systemName: "play.fill").font(.system(size: 8)).foregroundStyle(accent.opacity(0.65))
+                    HStack(spacing: 4) {
+                        Image(systemName: "play.fill")
+                            .font(.system(size: 8))
+                            .accessibilityHidden(true)
+                        Text("Will open")
+                            .font(.system(size: 10, weight: .medium))
+                    }
+                    .foregroundStyle(accent)
+                    .fixedSize()
                 }
                 RowAction(symbol: "minus", tint: accent)
             }
@@ -225,9 +227,9 @@ struct DeskView: View {
 
     private func chooseApplication() { page = .apps }
 
-    private func cleanDesk() {
+    private func cleanDesk(all: Bool = false) {
         page = .dashboard
-        store.clean()
+        store.clean(all: all)
     }
 
     private func emptyState(_ title: String) -> some View {

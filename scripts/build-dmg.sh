@@ -2,7 +2,7 @@
 set -euo pipefail
 
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-APP_DIR="$PROJECT_DIR/dist/Clean Desk.app"
+APP_DIR="/Applications/Clean Desk.app"
 DMG_PATH="$PROJECT_DIR/dist/Clean-Desk.dmg"
 
 "$PROJECT_DIR/scripts/build.sh"
@@ -14,6 +14,8 @@ trap 'exit 143' TERM
 
 ditto "$APP_DIR" "$DMG_STAGE_DIR/Clean Desk.app"
 ln -s /Applications "$DMG_STAGE_DIR/Applications"
+
+mkdir -p "$PROJECT_DIR/dist"
 
 hdiutil create \
   -volname "Clean Desk" \

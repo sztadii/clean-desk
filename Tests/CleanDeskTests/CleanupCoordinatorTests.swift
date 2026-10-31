@@ -5,6 +5,39 @@ import CleanDeskCore
 
 @MainActor
 final class CleanupCoordinatorTests: XCTestCase {
+    func testCleanAllClosesFavouritesWithoutLaunchingMissingFavourites() async {
+        let world = CleanupWorld()
+        let favourite = world.add("Browser", pid: 12)
+        let editor = world.add("Editor", pid: 10)
+        let coordinator = world.coordinator()
+
+        await coordinator.clean(
+            protectedApps: [favourite.saved, world.saved("Missing")],
+            cleanDesktop: true,
+            all: true
+        )
+
+        XCTAssertEqual(world.events.first, "desktop")
+        XCTAssertEqual(Set(world.events.dropFirst()), ["quit:Browser", "quit:Editor"])
+        XCTAssertTrue(favourite.isTerminated)
+        XCTAssertTrue(editor.isTerminated)
+        assertSuccessful(coordinator.reconcile())
+    }
+
+    func testCleanNonfavouriteKeepsRunningFavouriteAndCleansDesktop() async {
+        let world = CleanupWorld()
+        let favourite = world.add("Browser", pid: 12)
+        let editor = world.add("Editor", pid: 10)
+        let coordinator = world.coordinator()
+
+        await coordinator.clean(protectedApps: [favourite.saved], cleanDesktop: true)
+
+        XCTAssertEqual(world.events, ["desktop", "quit:Editor"])
+        XCTAssertFalse(favourite.isTerminated)
+        XCTAssertTrue(editor.isTerminated)
+        assertSuccessful(coordinator.reconcile())
+    }
+
     func testFullCleanupOrdersDesktopLaunchQuitAndFinderHide() async {
         let world = CleanupWorld()
         let editor = world.add("Editor", pid: 10)

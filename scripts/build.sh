@@ -3,7 +3,7 @@ set -euo pipefail
 
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BUILD_DIR="$PROJECT_DIR/.build"
-APP_DIR="$PROJECT_DIR/dist/Clean Desk.app"
+APP_DIR="/Applications/Clean Desk.app"
 export SDKROOT="$(xcrun --sdk macosx --show-sdk-path)"
 export CLANG_MODULE_CACHE_PATH="$BUILD_DIR/ModuleCache"
 export SWIFT_MODULECACHE_PATH="$BUILD_DIR/ModuleCache"
