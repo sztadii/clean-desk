@@ -50,8 +50,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     private let store = AppStore()
     private var reportObserver: AnyCancellable?
     private var desktopAccessObserver: AnyCancellable?
-    private var contextMenuTask: Task<Void, Never>?
-    private var contextMenuRequestID: UUID?
     private var contextMenuVisible = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -123,70 +121,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
 
     private func showContextMenu() {
         guard let button = statusItem?.button else { return }
-        let wasShowingPopover = popover.isShown
         contextMenuVisible = true
         popover.performClose(nil)
-        store.setPanelVisible(true)
-        if wasShowingPopover { store.refresh(inspectDesktop: false) }
         let menu = NSMenu()
-        menu.autoenablesItems = false
-        let cleanItem = NSMenuItem(title: CleanupMode.keepFavourites.title, action: #selector(cleanDesk), keyEquivalent: "")
-        cleanItem.target = self
-        updateCleanupItem(cleanItem, mode: .keepFavourites)
-        let cleanAllItem = NSMenuItem(title: CleanupMode.closeAll.title, action: #selector(cleanAll), keyEquivalent: "")
-        cleanAllItem.target = self
-        updateCleanupItem(cleanAllItem, mode: .closeAll)
-        menu.addItem(cleanItem)
-        menu.addItem(cleanAllItem)
-        menu.addItem(.separator())
         let quitItem = NSMenuItem(title: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "")
         quitItem.target = NSApp
         menu.addItem(quitItem)
-        // Show Quit immediately even when Desktop access is slow or awaiting a
-        // system prompt. A late scan can update only this still-open menu.
-        contextMenuTask?.cancel()
-        let requestID = UUID()
-        contextMenuRequestID = requestID
-        contextMenuTask = Task { @MainActor [weak self, weak cleanItem, weak cleanAllItem] in
-            guard let self, !Task.isCancelled, self.contextMenuRequestID == requestID else { return }
-            await self.store.refreshDesktopStatus()
-            guard !Task.isCancelled, self.contextMenuRequestID == requestID else { return }
-            self.updateCleanupItem(cleanAllItem, mode: .closeAll)
-            self.updateCleanupItem(cleanItem, mode: .keepFavourites)
-        }
-        let menuObserver = store.objectWillChange
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self, weak cleanItem, weak cleanAllItem] in
-                guard let self, self.contextMenuRequestID == requestID else { return }
-                self.updateCleanupItem(cleanAllItem, mode: .closeAll)
-                self.updateCleanupItem(cleanItem, mode: .keepFavourites)
-            }
         button.highlight(true)
-        _ = withExtendedLifetime(menuObserver) {
-            menu.popUp(positioning: nil, at: NSPoint(x: 0, y: button.bounds.minY), in: button)
-        }
+        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: button.bounds.minY), in: button)
         button.highlight(false)
         contextMenuVisible = false
         store.setPanelVisible(popover.isShown)
-        if contextMenuRequestID == requestID {
-            contextMenuRequestID = nil
-            contextMenuTask?.cancel()
-            contextMenuTask = nil
-        }
-    }
-
-    private func updateCleanupItem(_ item: NSMenuItem?, mode: CleanupMode) {
-        let reason = store.cleanupDisabledReason(mode)
-        item?.isEnabled = reason == nil
-        item?.toolTip = reason
-    }
-
-    @objc private func cleanAll() {
-        store.clean(.closeAll)
-    }
-
-    @objc private func cleanDesk() {
-        store.clean()
     }
 
     private func observeDesktopAccess() {

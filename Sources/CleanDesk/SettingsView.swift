@@ -31,6 +31,11 @@ struct SettingsView: View {
                             .pointingHand(isEnabled: !store.isCleaning && !store.isGrantingDesktopAccess)
                     }
 
+                    Toggle(isOn: Binding(get: { store.confirmCloseAll }, set: store.setConfirmCloseAll)) {
+                        settingLabel("Confirm before closing all apps")
+                    }
+                    .pointingHand()
+
                     Toggle(isOn: Binding(get: { launchAtLogin.enabled }, set: launchAtLogin.setEnabled)) {
                         settingLabel("Launch app on start")
                     }

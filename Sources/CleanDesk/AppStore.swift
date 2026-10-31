@@ -8,6 +8,7 @@ final class AppStore: ObservableObject {
     @Published private(set) var protectedApps: [SavedApplication] = []
     @Published private(set) var isCleaning = false
     @Published private(set) var report: CleanupReport?
+    @Published private(set) var confirmCloseAll: Bool
     @Published private(set) var cleanDesktopEnabled: Bool
     @Published private(set) var desktopFileCount: Int?
     @Published private(set) var isGrantingDesktopAccess = false
@@ -85,6 +86,7 @@ final class AppStore: ObservableObject {
 
     init(defaults: UserDefaults = .standard, workspace: NSWorkspace = .shared,
          desktopAccess: (any DesktopAccessProviding)? = nil) {
+        self.confirmCloseAll = defaults.object(forKey: "confirmCloseAll.v1") as? Bool ?? true
         self.defaults = defaults
         self.workspace = workspace
         self.needsOnboarding = !defaults.bool(forKey: "onboardingCompleted.v1")
@@ -174,6 +176,11 @@ final class AppStore: ObservableObject {
         needsOnboarding = false
         isRecoveringSelection = false
         refresh()
+    }
+
+    func setConfirmCloseAll(_ enabled: Bool) {
+        confirmCloseAll = enabled
+        defaults.set(enabled, forKey: "confirmCloseAll.v1")
     }
 
     func setCleanDesktopEnabled(_ enabled: Bool) {

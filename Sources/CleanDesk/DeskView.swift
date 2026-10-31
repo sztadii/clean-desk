@@ -4,6 +4,7 @@ import SwiftUI
 struct DeskView: View {
     @ObservedObject var store: AppStore
     let quit: () -> Void
+    @State private var showingCloseAllConfirmation = false
     @State private var page: Page = .dashboard
     @Environment(\.colorScheme) private var colorScheme
 
@@ -43,14 +44,15 @@ struct DeskView: View {
         .onChange(of: store.isCleaning) { _, isCleaning in
             if isCleaning { page = .dashboard }
         }
+        .alert("Close all apps?", isPresented: $showingCloseAllConfirmation) {
+            Button("Cancel", role: .cancel) { }
+            Button("Close all", role: .destructive) { store.clean(.closeAll) }
+        } message: {
+            Text(store.cleanDesktopEnabled
+                 ? "All open apps, including favourites, will be asked to quit. Desktop files will also be moved to Trash."
+                 : "All open apps, including favourites, will be asked to quit.")
+        }
         .contextMenu {
-            ForEach(CleanupMode.allCases, id: \.self) { mode in
-                Button(mode.title, role: mode.isDestructive ? .destructive : nil) {
-                    cleanDesk(mode)
-                }
-                .disabledWithReason(store.cleanupDisabledReason(mode))
-            }
-            Divider()
             Button("Quit", action: quit)
         }
     }
@@ -233,7 +235,12 @@ struct DeskView: View {
 
     private func cleanDesk(_ mode: CleanupMode) {
         page = .dashboard
-        store.clean(mode)
+        guard store.canClean(mode) else { return }
+        if mode == .closeAll && store.confirmCloseAll {
+            showingCloseAllConfirmation = true
+        } else {
+            store.clean(mode)
+        }
     }
 
     private func emptyState(_ title: String) -> some View {
